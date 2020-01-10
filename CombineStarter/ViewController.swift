@@ -7,15 +7,24 @@
 //
 
 import UIKit
-import Combine
 
 final class ViewController: UIViewController {
 
+    private let repository = GithubRepository()
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+
+        let result = repository.fetchRepository(query: "i")
+        result.sink(receiveCompletion: { completion in
+            switch completion {
+            case .finished:
+                print("finished")
+            case .failure(let error):
+                print("error:\(error.localizedDescription)")
+            }
+        }) { value in
+            print(value)
+        }
     }
-
-
 }
-
