@@ -7,24 +7,28 @@
 //
 
 import UIKit
+import Combine
 
 final class ViewController: UIViewController {
 
+    private var cancellableSet: Set<AnyCancellable> = []
     private let repository = GithubRepository()
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        let result = repository.fetchRepository(query: "i")
-        result.sink(receiveCompletion: { completion in
-            switch completion {
-            case .finished:
-                print("finished")
-            case .failure(let error):
-                print("error:\(error.localizedDescription)")
-            }
-        }) { value in
-            print(value)
-        }
+        repository.fetch(query: "demo")?
+            .receive(on: DispatchQueue.main)
+            .sink(receiveCompletion: { (completion) in
+                switch completion {
+                case .failure(let error):
+                    print(error.localizedDescription)
+                case .finished:
+                    print("Finished")
+                }
+            }, receiveValue: { response in
+                print(response)
+            })
+            .store(in: &cancellableSet)
     }
 }
