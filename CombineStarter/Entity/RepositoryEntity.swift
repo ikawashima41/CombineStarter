@@ -14,4 +14,12 @@ struct RepositoryEntity: Decodable, Identifiable {
     let description: String?
     let stargazersCount: Int
     let htmlUrl: URL
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case fullName = "full_name"
+        case description
+        case stargazersCount = "stargazers_count"
+        case htmlUrl = "html_url"
+    }
 }
