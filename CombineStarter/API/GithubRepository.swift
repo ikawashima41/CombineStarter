@@ -9,33 +9,25 @@
 import Foundation
 import Combine
 
-protocol GithubRepositoryProtocol {
-    func fetchRepository(query: String) -> AnyPublisher<Result<[RepositoryEntity], ErrorEntity>, Never>
-}
+//protocol GithubRepositoryProtocol {
+//    func fetchRepository(query: String) -> AnyPublisher<Result<[RepositoryEntity], ErrorEntity>, Never>
+//}
 
-final class GithubRepository: GithubRepositoryProtocol {
+struct GithubRepository {
+    func fetch(query: String) -> AnyPublisher<ItemListEntity<RepositoryEntity>, Error>? {
+        return try? GithubRequest().fetch(query: query)
+                .tryMap{ try self.validate($0.data, $0.response) }
+                .decode(type: ItemListEntity<RepositoryEntity>.self, decoder: JSONDecoder())
+                .eraseToAnyPublisher()
+    }
 
-    private let request = GithubRequest()
-
-    func fetchRepository(query: String) -> AnyPublisher<Result<[RepositoryEntity], ErrorEntity>, Never> {
-
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-
-        return request.send(query)
-        .decode(type: ItemListEntity<RepositoryEntity>.self, decoder: decoder)
-        .map { Result<[RepositoryEntity], ErrorEntity>.success($0.items) }
-        .catch { error -> AnyPublisher<Result<[RepositoryEntity], ErrorEntity>, Never> in
-            guard case let .serverErrorMessage(_, data)? = error as? APIError else {
-                return .just(.success([]))
-            }
-            do {
-                let response = try JSONDecoder().decode(ErrorEntity.self, from: data)
-                return .just(.failure(response))
-            } catch _ {
-                return .just(.success([]))
-            }
+    private func validate(_ data: Data, _ response: URLResponse) throws -> Data {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
         }
-        .eraseToAnyPublisher()
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            throw APIError.serverErrorMessage(statusCode: httpResponse.statusCode)
+        }
+        return data
     }
 }
