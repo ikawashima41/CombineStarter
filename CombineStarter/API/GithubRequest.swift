@@ -11,41 +11,32 @@ import Combine
 
 enum APIError: Error {
     case invalidResponse
-    case serverErrorMessage(statusCode: Int, data: Data)
+    case serverErrorMessage(statusCode: Int)
     case urlError(URLError)
 }
 
-class GithubRequest {
+final class GithubRequest {
 
-    func send(_ query: String) -> AnyPublisher<Data, APIError> {
+    func build(_ query: String) throws -> URLRequest {
 
         guard var components = URLComponents(string: "https://api.github.com/search/repositories") else {
-            return .empty()
+            throw APIError.invalidResponse
         }
         components.queryItems = [URLQueryItem(name: "q", value: query)]
 
         guard let url = components.url else {
-            return .empty()
+            throw APIError.invalidResponse
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        return URLSession.shared.dataTaskPublisher(for: request)
-            .mapError { APIError.urlError($0) }
-            .flatMap { data, response -> AnyPublisher<Data, APIError> in
-                guard let response = response as? HTTPURLResponse else {
-                    return .fail(.invalidResponse)
-                }
+        return request
+    }
 
-                guard 200..<300 ~= response.statusCode else {
-                    return .fail(.serverErrorMessage(statusCode: response.statusCode,
-                                                     data: data))
-                }
-
-                return .just(data)
-        }
-        .eraseToAnyPublisher()
+    func fetch(query: String, session: URLSession = URLSession.shared)throws -> URLSession.DataTaskPublisher {
+        let request = try build(query)
+        return session.dataTaskPublisher(for: request)
     }
 }
